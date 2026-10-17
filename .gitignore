@@ -1,0 +1,6 @@
+/config/local.php
+/.idea/
+/.DS_Store
+/*.log
+/.env
+/.env.*
