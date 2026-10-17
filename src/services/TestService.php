@@ -13,7 +13,7 @@ use CompanyCommon\Models\TestModel;
  */
 class TestService
 {
-    /** @var TestModel 公共探测模型 */
+    /** @var TestModel|null 首次调用时才创建的公共探测模型 */
     private $test_model;
 
     /**
@@ -26,8 +26,8 @@ class TestService
      */
     public function __construct(TestModel $test_model = null)
     {
-        // 构建惰性依赖链，实例化服务不会建立连接
-        $this->test_model = $test_model === null ? new TestModel() : $test_model;
+        // 只保存显式传入的模型，实例化服务不自动加载模型类或创建模型
+        $this->test_model = $test_model;
     }
 
     /**
@@ -39,6 +39,11 @@ class TestService
      */
     public function getMessage()
     {
+        // 需要查询时才创建模型，并在同一服务实例内复用
+        if ($this->test_model === null) {
+            $this->test_model = new TestModel();
+        }
+
         // 通过模型执行真实数据库查询，不能用本地默认值伪造成功
         $row = $this->test_model->fetchProbe();
 

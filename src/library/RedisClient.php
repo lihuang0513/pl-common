@@ -13,7 +13,7 @@ use RuntimeException;
  */
 class RedisClient
 {
-    /** @var Config 公共库独立配置 */
+    /** @var Config|null 首次连接时才创建的公共库配置 */
     private $config;
 
     /** @var Redis[] 当前工厂已打开的连接 */
@@ -29,8 +29,8 @@ class RedisClient
      */
     public function __construct(Config $config = null)
     {
-        // 配置对象本身不读取文件，也不发起 Redis 连接
-        $this->config = $config === null ? new Config() : $config;
+        // 只保存显式传入的配置，实例化工厂不自动创建配置对象
+        $this->config = $config;
     }
 
     /**
@@ -46,6 +46,11 @@ class RedisClient
         // 同一工厂只复用自己的连接，不复用或修改宿主 Redis
         if (isset($this->connections[$name])) {
             return $this->connections[$name];
+        }
+
+        // 实际使用 Redis 时才加载配置类并创建独立配置对象
+        if ($this->config === null) {
+            $this->config = new Config();
         }
 
         // 实际调用时才要求配置及扩展，普通公共方法不受影响

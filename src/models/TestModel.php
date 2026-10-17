@@ -12,7 +12,7 @@ use CompanyCommon\Library\Database;
  */
 class TestModel
 {
-    /** @var Database 公共数据库工厂 */
+    /** @var Database|null 首次查询时才创建的公共数据库工厂 */
     private $database;
 
     /**
@@ -25,8 +25,8 @@ class TestModel
      */
     public function __construct(Database $database = null)
     {
-        // 工厂只有在查询时才创建连接，构造模型不会访问数据库
-        $this->database = $database === null ? new Database() : $database;
+        // 只保存显式传入的工厂，构造模型不自动加载或创建数据库依赖
+        $this->database = $database;
     }
 
     /**
@@ -38,6 +38,11 @@ class TestModel
      */
     public function fetchProbe()
     {
+        // 实际执行查询时才加载并创建数据库工厂
+        if ($this->database === null) {
+            $this->database = new Database();
+        }
+
         // 获取惰性连接并执行绑定参数查询，不读取或写入业务表
         $connection = $this->database->getConnection();
         $statement = $connection->prepare('SELECT :message AS message, DATABASE() AS database_name');

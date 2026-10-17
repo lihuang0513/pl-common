@@ -12,7 +12,7 @@ use CompanyCommon\Services\TestService;
  */
 class TestController
 {
-    /** @var TestService 公共探测服务 */
+    /** @var TestService|null 首次调用时才创建的公共探测服务 */
     private $test_service;
 
     /**
@@ -25,8 +25,8 @@ class TestController
      */
     public function __construct(TestService $test_service = null)
     {
-        // 公共控制器只组装业务依赖，不启动另一套框架应用
-        $this->test_service = $test_service === null ? new TestService() : $test_service;
+        // 只保存显式传入的服务，不在构造时加载下游类或创建依赖对象
+        $this->test_service = $test_service;
     }
 
     /**
@@ -38,6 +38,11 @@ class TestController
      */
     public function indexAction()
     {
+        // 实际调用公共入口时才加载并创建服务，未调用时不触发下游依赖
+        if ($this->test_service === null) {
+            $this->test_service = new TestService();
+        }
+
         // 按约定经过服务层与模型层获取数据库结果，公共库本身不输出响应
         return $this->test_service->getMessage();
     }

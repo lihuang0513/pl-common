@@ -63,7 +63,8 @@ $message = $controller->indexAction();
 ## 配置与惰性连接
 
 - 引入 `bootstrap.php`：仅追加公共命名空间加载器，重复引入不会重复注册。
-- 实例化 Controller、Service、Model、Database、RedisClient：不读取配置、不连接资源。
+- 实例化 Controller、Service、Model、Database、RedisClient：只保存显式传入的依赖，不自动加载或实例化下游类。
+- 实际调用各层方法时，才创建这一层需要的对象并在当前实例内复用；配置和连接也继续保持惰性。
 - 执行模型查询：首次读取配置并建立独立 PDO 连接。
 - 调用 `RedisClient::getConnection()`：才检查扩展、连接、认证、选库和设置键前缀。
 - 每个工厂实例按连接名称复用连接，不使用全局连接池；批量业务可复用同一工厂实例。
