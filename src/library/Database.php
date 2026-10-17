@@ -14,7 +14,7 @@ use RuntimeException;
  */
 class Database
 {
-    /** @var Config|null 首次连接时才创建的公共库配置 */
+    /** @var Config 当前工厂复用的独立配置对象 */
     private $config;
 
     /** @var PDO[] 当前工厂已打开的连接 */
@@ -30,8 +30,8 @@ class Database
      */
     public function __construct(Config $config = null)
     {
-        // 只保存显式传入的配置，实例化工厂不自动创建配置对象
-        $this->config = $config;
+        // 默认配置对象创建一次；Config 构造方法不会读取文件或连接资源
+        $this->config = $config === null ? new Config() : $config;
     }
 
     /**
@@ -47,11 +47,6 @@ class Database
         // 复用已经建立的独立连接，避免同一业务重复建连
         if (isset($this->connections[$name])) {
             return $this->connections[$name];
-        }
-
-        // 实际需要连接时才加载配置类并创建独立配置对象
-        if ($this->config === null) {
-            $this->config = new Config();
         }
 
         // 仅在查询需要连接时读取配置并检查可用驱动

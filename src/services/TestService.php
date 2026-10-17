@@ -2,18 +2,17 @@
 
 namespace CompanyCommon\Services;
 
-use RuntimeException;
 use CompanyCommon\Models\TestModel;
 
 /**
- * 校验数据库探测结果并提供稳定的业务返回值
+ * 编排多数据库查询与本地 Redis 验证并汇总结果
  *
  * @author 李煌<517306208@qq.com>
  * @date 2026-10-17
  */
 class TestService
 {
-    /** @var TestModel|null 首次调用时才创建的公共探测模型 */
+    /** @var TestModel 当前服务复用的公共验证模型 */
     private $test_model;
 
     /**
@@ -26,31 +25,34 @@ class TestService
      */
     public function __construct(TestModel $test_model = null)
     {
-        // 只保存显式传入的模型，实例化服务不自动加载模型类或创建模型
-        $this->test_model = $test_model;
+        // 默认模型在构造时创建一次，后续调用复用该模型，不在此处查询资源
+        $this->test_model = $test_model === null ? new TestModel() : $test_model;
     }
 
     /**
-     * 校验查询已进入指定数据库后返回探测文本
+     * 在同一次调用中读取两库最新行并验证本地 Redis 写入
      *
-     * @return string
+     * @return array
      * @author 李煌<517306208@qq.com>
      * @date 2026-10-17
      */
-    public function getMessage()
+    public function getResults()
     {
-        // 需要查询时才创建模型，并在同一服务实例内复用
-        if ($this->test_model === null) {
-            $this->test_model = new TestModel();
-        }
+        // 从本地评论库取得主键最大的完整评论记录
+        $pinglun = $this->test_model->fetchLatestComment();
 
-        // 通过模型执行真实数据库查询，不能用本地默认值伪造成功
-        $row = $this->test_model->fetchProbe();
+        // 使用另一命名连接查询日志库，验证同一请求内的多数据库隔离
+        $plapi_log = $this->test_model->fetchLatestPlapiLog();
 
-        // 同时要求选中了数据库且返回约定文本，避免无数据库连接被误判成功
-        if (empty($row) || empty($row['database_name']) || !isset($row['message']) || $row['message'] !== 'test') {
-            throw new RuntimeException('公共数据库探测结果不符合预期。');
-        }
-        return $row['message'];
+        // 两库读取成功后，执行用户指定的本地 Redis 写入并读回核验
+        $redis = $this->test_model->writeAndReadRedis();
+
+        // 汇总真实查询结果，由宿主决定如何输出 HTTP 或 CLI 响应
+        return [
+            'status' => 'success',
+            'pinglun' => $pinglun,
+            'plapi_log' => $plapi_log,
+            'redis' => $redis,
+        ];
     }
 }

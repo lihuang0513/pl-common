@@ -2,8 +2,9 @@
 
 可被多个 PHP 项目直接引入的公共业务库。公共类不继承 Phalcon 类，不创建第二套框架应用。
 
-本次验证链路：`TestController → TestService → TestModel → PDO → 本地 MySQL`，成功返回纯文本 `test`。
-查询使用绑定参数和 `DATABASE()`，不建表、不读取或修改业务记录。数据库连接失败会抛出异常，不伪造成功结果。
+本次验证链路：`TestController → TestService → TestModel → 两个独立 PDO 连接 + 本地 Redis`。
+同一次调用返回两个库各一条最新记录，以及 Redis 写入后读回的值。数据库只读，不建表或修改记录。
+验证接口会按要求写入本地 Redis 原始键 `test=111`，连接或查询失败会明确报错。
 
 ## 目录
 
@@ -54,7 +55,7 @@ require_once sprintf('%s/shared/pl-common/bootstrap.php', __DIR__);
 
 // 调用公共控制器，经过服务和模型执行真实查询；异常由宿主统一处理
 $controller = new TestController();
-$message = $controller->indexAction();
+$result = $controller->indexAction();
 ```
 
 根据入口实际目录调整 `bootstrap.php` 路径即可。宿主可以直接实例化其他 `CompanyCommon` 下的公共类。
@@ -63,8 +64,9 @@ $message = $controller->indexAction();
 ## 配置与惰性连接
 
 - 引入 `bootstrap.php`：仅追加公共命名空间加载器，重复引入不会重复注册。
-- 实例化 Controller、Service、Model、Database、RedisClient：只保存显式传入的依赖，不自动加载或实例化下游类。
-- 实际调用各层方法时，才创建这一层需要的对象并在当前实例内复用；配置和连接也继续保持惰性。
+- `__construct` 保留默认依赖初始化：未传入依赖时创建一次，传入实例时直接复用。
+- 同一对象后续调用复用成员中的依赖；文件通过自动加载器和 `require_once` 加载，不重复引入。
+- 构造依赖对象不会读取配置文件或连接外部资源；这些操作仍在实际使用资源时执行。
 - 执行模型查询：首次读取配置并建立独立 PDO 连接。
 - 调用 `RedisClient::getConnection()`：才检查扩展、连接、认证、选库和设置键前缀。
 - 每个工厂实例按连接名称复用连接，不使用全局连接池；批量业务可复用同一工厂实例。
@@ -82,6 +84,31 @@ $message = $controller->indexAction();
 
 宿主原有的 `Models`、`Services`、`Library` 不会被这份加载器接管。
 同一 PHP 进程只能加载一份 `CompanyCommon` 实现，不应同时引入两个不同提交的公共库。
+
+## 多资源验证
+
+在本地配置文件中提供三份独立命名连接：
+
+| 名称 | 资源 | 操作 |
+| --- | --- | --- |
+| `database.pinglun` | 本机 `pinglun` 库 | `comment` 表按 `id DESC LIMIT 1` 查询完整行 |
+| `database.plapi_log` | 测试服务器 `plapi` 库 | `plapi_tmp_log_2024` 表按 `id DESC LIMIT 1` 查询完整行 |
+| `redis.local` | 本机 Redis DB0，空键前缀 | `SET test 111` 后 `GET test` 核验 |
+
+两库的“最新”均指自增主键最大的记录。查询结果包含连接名、实际选中的数据库名、表名及 `row`。
+空表正常返回 `row: null`，不会编造记录。同名数据库连接在一个 Database 工厂内复用，两个名称使用不同 PDO。
+`redis.local` 必须配置空前缀，否则验证会拒绝写入；默认业务 Redis 连接仍使用 `pl-common:` 前缀。
+
+返回数组结构：
+
+```text
+status: success
+pinglun: {connection, database, table, row: 完整评论记录或 null}
+plapi_log: {connection, database, table, row: 完整日志记录或 null}
+redis: {key: test, value: "111"}
+```
+
+真实服务器地址、凭据及查询结果不存入本仓库。该验证入口仅供本机调试，响应包含实际业务记录。
 
 ## 子模块拉取与更新
 
@@ -109,18 +136,20 @@ git submodule update --remote --checkout shared/pl-common
 
 第一版使用 PHP 7.1 可解析的语法；已在 PHP 7.1.33、Phalcon 3.4.5 宿主环境验证。
 公共库自身不要求 Phalcon。数据库探测需要 PDO 和 pdo_mysql；只有使用 Redis 时才需要 phpredis。
-`TestModel` 的 `DATABASE()` 是 MySQL 查询示例，其他数据库需要对应的 Model 实现。
+`TestModel` 的查询使用 MySQL 语法，其他数据库需要对应的 Model 实现。
 不承诺兼容全部 PHP/扩展版本，部署前应在实际运行版本上验证。
 
 本地直接验证：
 
 ```sh
-php -r 'require "bootstrap.php"; echo (new CompanyCommon\Modules\TestController())->indexAction(), PHP_EOL;'
+php -r 'require "bootstrap.php"; echo json_encode((new CompanyCommon\Modules\TestController())->indexAction(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), PHP_EOL;'
 ```
 
 跨仓验证入口（仅允许本机访问）：
 
-- plapi：`GET /common/test`。
+- plapi：`public/index.php` 在原有宿主加载器之后统一引入公共入口，`GET /common/test` 直接调用公共类。
 - pl-new：`GET /CommonTest.php`，也可直接使用 PHP CLI 执行该文件。
 
-成功响应为 HTTP 200、`text/plain`、正文 `test`；数据库失败响应为 HTTP 503 和固定错误文本，原始凭据不输出到 HTTP。
+plapi 启动引入只注册加载器。子模块目录缺失时跳过公共加载，不影响原有入口；公共验证接口会返回失败。
+成功响应为 HTTP 200、`application/json`、完整多资源结果；失败响应为 HTTP 503 和固定 JSON 错误消息。
+pl-new 域名若没有 hosts 解析，可用 `curl --resolve` 或显式 Host 请求已有 Nginx vhost。

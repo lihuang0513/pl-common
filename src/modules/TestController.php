@@ -12,7 +12,7 @@ use CompanyCommon\Services\TestService;
  */
 class TestController
 {
-    /** @var TestService|null 首次调用时才创建的公共探测服务 */
+    /** @var TestService 当前控制器复用的公共验证服务 */
     private $test_service;
 
     /**
@@ -25,25 +25,20 @@ class TestController
      */
     public function __construct(TestService $test_service = null)
     {
-        // 只保存显式传入的服务，不在构造时加载下游类或创建依赖对象
-        $this->test_service = $test_service;
+        // 构造时只初始化一次默认服务；传入实例时直接复用，不连接外部资源
+        $this->test_service = $test_service === null ? new TestService() : $test_service;
     }
 
     /**
      * 提供稳定的公共调用入口，输出由宿主决定
      *
-     * @return string
+     * @return array
      * @author 李煌<517306208@qq.com>
      * @date 2026-10-17
      */
     public function indexAction()
     {
-        // 实际调用公共入口时才加载并创建服务，未调用时不触发下游依赖
-        if ($this->test_service === null) {
-            $this->test_service = new TestService();
-        }
-
-        // 按约定经过服务层与模型层获取数据库结果，公共库本身不输出响应
-        return $this->test_service->getMessage();
+        // 经服务层和模型层汇总两个数据库与 Redis 的真实操作结果
+        return $this->test_service->getResults();
     }
 }
