@@ -1,6 +1,6 @@
 <?php
 
-namespace CompanyCommon\Library;
+namespace PlCommon\Library;
 
 /**
  * 仅管理公共库命名空间的自动加载器
@@ -44,10 +44,10 @@ class Autoloader
     {
         // 大写命名空间映射到现有小写目录，兼容区分大小写的服务器
         $prefixes = [
-            'CompanyCommon\\Modules\\' => 'modules',
-            'CompanyCommon\\Services\\' => 'services',
-            'CompanyCommon\\Models\\' => 'models',
-            'CompanyCommon\\Library\\' => 'library',
+            'PlCommon\\Modules\\' => 'modules',
+            'PlCommon\\Services\\' => 'services',
+            'PlCommon\\Models\\' => 'models',
+            'PlCommon\\Library\\' => 'library',
         ];
 
         // 只处理公共库拥有的类名，其他命名空间留给原有加载器

@@ -1,6 +1,6 @@
 <?php
 
-namespace CompanyCommon\Library;
+namespace PlCommon\Library;
 
 use InvalidArgumentException;
 use RuntimeException;

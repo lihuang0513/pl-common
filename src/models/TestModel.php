@@ -1,12 +1,12 @@
 <?php
 
-namespace CompanyCommon\Models;
+namespace PlCommon\Models;
 
 use PDO;
 use Redis;
 use RuntimeException;
-use CompanyCommon\Library\Database;
-use CompanyCommon\Library\RedisClient;
+use PlCommon\Library\Database;
+use PlCommon\Library\RedisClient;
 
 /**
  * 封装两库最新记录查询和本地 Redis 测试键操作

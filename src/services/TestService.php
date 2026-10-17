@@ -1,8 +1,8 @@
 <?php
 
-namespace CompanyCommon\Services;
+namespace PlCommon\Services;
 
-use CompanyCommon\Models\TestModel;
+use PlCommon\Models\TestModel;
 
 /**
  * 编排多数据库查询与本地 Redis 验证并汇总结果

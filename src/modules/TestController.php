@@ -1,8 +1,8 @@
 <?php
 
-namespace CompanyCommon\Modules;
+namespace PlCommon\Modules;
 
-use CompanyCommon\Services\TestService;
+use PlCommon\Services\TestService;
 
 /**
  * 供各宿主直接实例化的公共验证入口，不依赖框架控制器

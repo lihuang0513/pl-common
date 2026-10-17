@@ -48,7 +48,7 @@ cp shared/pl-common/config/config.example.php shared/pl-common/config/local.php
 ```php
 <?php
 
-use CompanyCommon\Modules\TestController;
+use PlCommon\Modules\TestController;
 
 // 在宿主入口引入一次公共加载器；此时不连接数据库或 Redis
 require_once sprintf('%s/shared/pl-common/bootstrap.php', __DIR__);
@@ -58,7 +58,7 @@ $controller = new TestController();
 $result = $controller->indexAction();
 ```
 
-根据入口实际目录调整 `bootstrap.php` 路径即可。宿主可以直接实例化其他 `CompanyCommon` 下的公共类。
+根据入口实际目录调整 `bootstrap.php` 路径即可。宿主可以直接实例化其他 `PlCommon` 下的公共类。
 公共 Controller 返回数据，不执行 `echo`、`exit` 或发送响应头；HTTP 输出由原项目负责。
 
 ## 配置与惰性连接
@@ -77,13 +77,13 @@ $result = $controller->indexAction();
 
 | 命名空间 | 目录 |
 | --- | --- |
-| `CompanyCommon\Modules\` | `src/modules/` |
-| `CompanyCommon\Services\` | `src/services/` |
-| `CompanyCommon\Models\` | `src/models/` |
-| `CompanyCommon\Library\` | `src/library/` |
+| `PlCommon\Modules\` | `src/modules/` |
+| `PlCommon\Services\` | `src/services/` |
+| `PlCommon\Models\` | `src/models/` |
+| `PlCommon\Library\` | `src/library/` |
 
 宿主原有的 `Models`、`Services`、`Library` 不会被这份加载器接管。
-同一 PHP 进程只能加载一份 `CompanyCommon` 实现，不应同时引入两个不同提交的公共库。
+同一 PHP 进程只能加载一份 `PlCommon` 实现，不应同时引入两个不同提交的公共库。
 
 ## 多资源验证
 
@@ -142,7 +142,7 @@ git submodule update --remote --checkout shared/pl-common
 本地直接验证：
 
 ```sh
-php -r 'require "bootstrap.php"; echo json_encode((new CompanyCommon\Modules\TestController())->indexAction(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), PHP_EOL;'
+php -r 'require "bootstrap.php"; echo json_encode((new PlCommon\Modules\TestController())->indexAction(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), PHP_EOL;'
 ```
 
 跨仓验证入口（仅允许本机访问）：
